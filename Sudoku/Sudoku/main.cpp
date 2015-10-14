@@ -29,9 +29,24 @@ Grid givenValues =
 	// output convenience
 ostream& operator<<(ostream& o, Point v)	{	o << "x: " << v.first << " y: " << v.second;	return o;	}
 ostream& operator<<(ostream& o, set<short> v)	{	for(auto e : v) cout << e << ", "; return o;	}
+ostream& operator<<(ostream& o, EligibleDigits::const_iterator v)	{	cout << "Point: " << v->first << " Value: " << v->second; return o;	}
+ostream& operator<<(ostream& o, const Grid& g)
+{
+	for(auto y : rows)
+		{
+		for(auto x : columns)
+			{
+			auto v = g.find({x,y});
 
+			if(v != g.end())	cout << v->second << ' ';
+			else cout << "* ";
+			}
+		cout << endl;
+		}
+	return o;
+}
 
-set<short> FindDigitsForPoint(Point p)
+set<short> FindDigitsForPoint(const Grid& g, Point p)
 {
 	cout << "Finding candidates for point " << p << endl;
 	short pX = p.first, pY = p.second;
@@ -41,14 +56,14 @@ set<short> FindDigitsForPoint(Point p)
 	for(auto x: columns)
 		if(pX != x)
 		{
-			auto xPos = givenValues.find({x,pY});	// find value at this Point
-			if(xPos != givenValues.end())	u.insert(xPos->second);
+			auto xPos = g.find({x,pY});	// find value at this Point
+			if(xPos != g.end())	u.insert(xPos->second);
 		}
 	for(auto y: rows)
 		if(pY != y)
 		{
-			auto yPos = givenValues.find({pX,y});
-			if(yPos != givenValues.end())	u.insert(yPos->second);
+			auto yPos = g.find({pX,y});
+			if(yPos != g.end())	u.insert(yPos->second);
 		}
 	cout << "Found: " << u << endl << endl;
 
@@ -63,36 +78,44 @@ EligibleDigits FindEligibleDigits(const Grid& g)
 {
 	EligibleDigits e;
 	for(auto y: rows)	for(auto x: columns)
-		if(givenValues.find({x,y}) == givenValues.end())
-				// not a given value
-			e[{x,y}] = FindDigitsForPoint({x,y});
+		if(g.find({x,y}) == g.end())
+				// point has no value in grid
+			e[{x,y}] = FindDigitsForPoint(g, {x,y});
 	return e;
 }
 
-void PrintGrid(const Grid& g)
+bool isSolved(const Grid& g)
 {
-	for(auto y : rows)
-		{
-			for(auto x : columns)
-			{
-				auto v = givenValues.find(make_pair(x, y));
-
-				if(v != givenValues.end())	cout << v->second << ' ';
-				else cout << "* ";
-			}
-			cout << endl;
-		}
-	cout << endl << endl;
+	for(auto y: rows)	for(auto x: columns)
+		if(g.find({x,y}) == g.end())	return false;	// found an empty square
+	return true;
 }
-
 
 
 int main(int argc, const char * argv[])
 {
-	PrintGrid(givenValues);
+	Grid solutionGrid = givenValues;
+	EligibleDigits cs;
 
-	Grid solution = givenValues;
-	EligibleDigits cs = FindEligibleDigits(givenValues);
+	cout << "given Values: " << endl << givenValues << endl << endl;
+	do
+	{
+		cs = FindEligibleDigits(solutionGrid);
+		auto IsSolution = [](EligibleDigits::const_reference v) -> bool	{	return v.second.size() == 1;	};	// point is a solution if only one value is possible
+
+			// look for solutions ( sets of eligible digits with only one value )
+		EligibleDigits::iterator aSolution;
+
+		if(find_if(cs.begin(), cs.end(), IsSolution) == cs.end())	break;	// no solutions found
+
+		while((aSolution = find_if(cs.begin(), cs.end(), IsSolution)) != cs.end())
+		{
+			cout << "Adding Solution: " << aSolution << endl;
+			solutionGrid[aSolution->first] = *aSolution->second.begin();
+			cs.erase(aSolution);
+			cout << "New Solution:" << endl << solutionGrid << endl << endl;
+		}
+	} while(!isSolved(solutionGrid));
 
     return 0;
 }
