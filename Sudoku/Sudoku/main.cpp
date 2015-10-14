@@ -15,7 +15,9 @@ using namespace std;
 
 vector<Grid> found;
 
-Grid givenValues =
+//#define verbose	// show solution steps
+
+Grid givenValues =	// {{x,y}, value}
 {
 	{{1,1}, 3}, {{4,1},4}, {{5,1}, 8}, {{6,1}, 5}, {{7,1},7}, {{8,1},2},
 	{{1,2},5}, {{4,2},3}, {{5,2},7}, {{7,2},6}, {{8,2},9},
@@ -39,12 +41,12 @@ ostream& operator<<(ostream& o, const Grid& g)
 	for(auto y : rows)
 		{
 		for(auto x : columns)
-			{
+		{
 			auto v = g.find({x,y});
 
 			if(v != g.end())	cout << v->second << ' ';
 			else cout << "* ";
-			}
+		}
 		cout << endl;
 		}
 	return o;
@@ -69,8 +71,9 @@ set<short> FindDigitsForPoint(const Grid& g, Point p)
 			if(yPos != g.end())	u.insert(yPos->second);
 		}
 	set_difference(digits.begin(), digits.end(), u.begin(), u.end(), inserter(i, i.begin()));
-//	cout << "Possible digits at " << p << " are " << i << endl << endl;
-
+	#ifdef verbose
+		cout << "Possible digits at " << p << " are " << i << endl << endl;
+	#endif
 	return i;
 }
 
@@ -137,7 +140,13 @@ Grid FindPossibleSolution(const Grid& g)
 	do
 	{
 		try	{	cs = FindEligibleDigits(solutionGrid);	}
-		catch(GotStuck p)	{	/* cout << "Got stuck: " << p << endl; */	break;	}
+		catch(GotStuck p)
+		{
+			#ifdef verbose
+				cout << "Got stuck: " << p << endl;
+			#endif
+			break;
+		}
 
 			// look for solutions ( sets of eligible digits with only one value )
 		EligibleDigits::iterator aSolution;
@@ -145,7 +154,9 @@ Grid FindPossibleSolution(const Grid& g)
 		while(!cs.empty() && (aSolution = find_if(cs.begin(), cs.end(), IsSolution)) != cs.end())
 		{
 			foundDigitSolution = true;
-//			cout << "Unique solution at " << aSolution << solutionGrid << endl;
+			#ifdef verbose
+				cout << "Unique solution at " << aSolution << solutionGrid << endl;
+			#endif
 			solutionGrid[aSolution->first] = *aSolution->second.begin();
 			cs.erase(aSolution);
 		}
@@ -153,7 +164,13 @@ Grid FindPossibleSolution(const Grid& g)
 
 			// have to start trying combinations.
 		try	{	cs = FindEligibleDigits(solutionGrid);	}
-		catch(GotStuck p)	{	/* cout << "Got stuck: " << p << endl; */	break;	}
+		catch(GotStuck p)
+		{
+			#ifdef verbose
+				cout << "Got stuck: " << p << endl;
+			#endif
+			break;
+		}
 
 		aSolution = min_element(cs.begin(), cs.end(),	// Start with squares with least count of eligible digits
 				// compare number of eligible digits
@@ -164,8 +181,9 @@ Grid FindPossibleSolution(const Grid& g)
 			for(auto s: aSolution->second)
 			{
 				solutionGrid[aSolution->first] = s;
-//				cout << "Trying Solution: " << s << " from " << aSolution << solutionGrid << endl;
-
+				#ifdef verbose
+					cout << "Trying Solution: " << s << " from " << aSolution << solutionGrid << endl;
+				#endif
 				try
 				{
 					trialSolution = FindPossibleSolution(solutionGrid);
@@ -173,7 +191,9 @@ Grid FindPossibleSolution(const Grid& g)
 				}
 				catch(FoundSolution s)
 				{
-//					cout << "Found Solution: " << s << endl;
+					#ifdef verbose
+						cout << "Found Solution: " << s << endl;
+					#endif
 					found.push_back(s);
 				}
 			}
