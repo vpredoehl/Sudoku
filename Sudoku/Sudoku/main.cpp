@@ -93,6 +93,38 @@ bool isSolved(const Grid& g)
 {
 	for(auto y: rows)	for(auto x: columns)
 		if(g.find({x,y}) == g.end())	return false;	// found an empty square
+
+		// check integrity of rows/columns ( each digit used exactly once )
+	for(auto y: rows)
+	{
+		vector<short> d;
+
+		for(auto x: columns)
+		{
+			Grid::const_iterator p;
+			if((p = g.find({x,y})) != g.end())	d.push_back(p->second);
+		}
+		sort(d.begin(), d.end());
+		d.erase(unique(d.begin(), d.end()), d.end());
+		if(d.size() != digits.size())
+			return false;	// digit used more than once
+	}
+
+	for(auto x: columns)
+	{
+		vector<short> d;
+
+		for(auto y: rows)
+		{
+			Grid::const_iterator p;
+			if((p = g.find({x,y})) != g.end()) d.push_back(p->second);
+		}
+		sort(d.begin(), d.end());
+		d.erase(unique(d.begin(), d.end()), d.end());
+		if(d.size() != digits.size())
+			return false;	// digit used more than once
+	}
+
 	return true;
 }
 
@@ -105,7 +137,7 @@ Grid FindPossibleSolution(const Grid& g)
 	do
 	{
 		try	{	cs = FindEligibleDigits(solutionGrid);	}
-		catch(GotStuck p)	{	cout << "Got stuck: " << p << endl;	break;	}
+		catch(GotStuck p)	{	/* cout << "Got stuck: " << p << endl; */	break;	}
 
 			// look for solutions ( sets of eligible digits with only one value )
 		EligibleDigits::iterator aSolution;
@@ -121,7 +153,7 @@ Grid FindPossibleSolution(const Grid& g)
 
 			// have to start trying combinations.
 		try	{	cs = FindEligibleDigits(solutionGrid);	}
-		catch(GotStuck p)	{	cout << "Got stuck: " << p << endl;	break;	}
+		catch(GotStuck p)	{	/* cout << "Got stuck: " << p << endl; */	break;	}
 
 		aSolution = min_element(cs.begin(), cs.end(),	// Start with squares with least count of eligible digits
 				// compare number of eligible digits
@@ -141,7 +173,7 @@ Grid FindPossibleSolution(const Grid& g)
 				}
 				catch(FoundSolution s)
 				{
-					cout << "Found Solution:" << s << endl;
+//					cout << "Found Solution: " << s << endl;
 					found.push_back(s);
 				}
 			}
@@ -153,7 +185,6 @@ Grid FindPossibleSolution(const Grid& g)
 }
 
 
-
 int main(int argc, const char * argv[])
 {
 	cout << "given Values: " << givenValues << endl << endl;
@@ -161,7 +192,12 @@ int main(int argc, const char * argv[])
 
 	if(!found.empty())
 	{
+			// remove duplicate solutions
+		sort(found.begin(), found.end());
+		found.erase(unique(found.begin(), found.end()), found.end());
+
 		cout << found.size() << " solutions found." << endl;
+		for_each(found.begin(), found.end(), [](vector<Grid>::const_reference v)	{	cout << "Solution: " << v << endl;	});
 //		copy(found.begin(), found.end(), ostream_iterator<Grid>(cout,"\n"));
 	 }
 	else
