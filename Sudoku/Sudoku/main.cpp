@@ -13,20 +13,6 @@
 
 using namespace std;
 
-struct GotStuck
-{
-	Point p;
-
-	GotStuck(Point p) : p{p} {}
-};	// for throw
-
-struct FoundSolution
-{
-	Grid s;
-
-	FoundSolution(Grid &s) : s{s}	{}
-	operator Grid() const	{	return s;	}
-};
 
 Grid givenValues =
 {
@@ -42,9 +28,9 @@ Grid givenValues =
 };
 
 	// output convenience
-ostream& operator<<(ostream& o, Point v)	{	o << "x: " << v.first << " y: " << v.second;	return o;	}
+ostream& operator<<(ostream& o, Point v)	{	o << "{" << v.first << "," << v.second << "}";	return o;	}
 ostream& operator<<(ostream& o, set<short> v)	{	for(auto e : v) cout << e << ", "; return o;	}
-ostream& operator<<(ostream& o, EligibleDigits::const_iterator v)	{	cout << "Point: " << v->first << " Value: " << v->second; return o;	}
+ostream& operator<<(ostream& o, EligibleDigits::const_iterator v)	{	cout << v->first << " Value: " << v->second; return o;	}
 ostream& operator<<(ostream& o, GotStuck p)	{	cout << p.p; return o;	}
 ostream& operator<<(ostream& o, const Grid& g)
 {
@@ -65,7 +51,6 @@ ostream& operator<<(ostream& o, const Grid& g)
 
 set<short> FindDigitsForPoint(const Grid& g, Point p)
 {
-//	cout << "Finding candidates for point " << p << endl;
 	short pX = p.first, pY = p.second;
 
 	set<short> u,i;	// union of all givens on row pY
@@ -82,11 +67,8 @@ set<short> FindDigitsForPoint(const Grid& g, Point p)
 			auto yPos = g.find({pX,y});
 			if(yPos != g.end())	u.insert(yPos->second);
 		}
-//	cout << "Found: " << u << endl << endl;
-
 	set_difference(digits.begin(), digits.end(), u.begin(), u.end(), inserter(i, i.begin()));
-
-//	cout << "Eligible: " << i << endl << endl;
+//	cout << "Possible digits at " << p << " are " << i << endl << endl;
 
 	return i;
 }
@@ -119,59 +101,56 @@ Grid FindPossibleSolution(const Grid& g)
 	Grid solutionGrid = g, trialSolution;
 	EligibleDigits cs;
 
-	try
+	do
 	{
-		do
+		try	{	cs = FindEligibleDigits(solutionGrid);	}
+		catch(GotStuck p)	{	cout << "Got stuck: " << p << endl;	break;	}
+
+			// look for solutions ( sets of eligible digits with only one value )
+		EligibleDigits::iterator aSolution;
+		bool foundDigitSolution = false;
+		while(!cs.empty() && (aSolution = find_if(cs.begin(), cs.end(), IsSolution)) != cs.end())
 		{
-			try	{	cs = FindEligibleDigits(solutionGrid);	}
-			catch(GotStuck p)	{	cout << "Got stuck: " << p << endl;	break;	}
+			foundDigitSolution = true;
+//			cout << "Unique solution at " << aSolution << solutionGrid << endl;
+			solutionGrid[aSolution->first] = *aSolution->second.begin();
+			cs.erase(aSolution);
+		}
+		if(foundDigitSolution)	continue;	// keep looking for more digits
 
-				// look for solutions ( sets of eligible digits with only one value )
-			EligibleDigits::iterator aSolution;
-			bool foundDigitSolution = false;
-			while(!cs.empty() && (aSolution = find_if(cs.begin(), cs.end(), IsSolution)) != cs.end())
+			// have to start trying combinations.
+		try	{	cs = FindEligibleDigits(solutionGrid);	}
+		catch(GotStuck p)	{	cout << "Got stuck: " << p << endl;	break;	}
+
+		aSolution = min_element(cs.begin(), cs.end(),	// Start with squares with least count of eligible digits
+				// compare number of eligible digits
+			[](EligibleDigits::const_reference v1, EligibleDigits::const_reference v2) noexcept -> bool  {		return v1.second.size() < v2.second.size();	});
+
+		if(aSolution != cs.end())
+		{
+			for(auto s: aSolution->second)
 			{
-				foundDigitSolution = true;
-//				cout << "Found Solution at " << aSolution << endl;
-				solutionGrid[aSolution->first] = *aSolution->second.begin();
-//				cout << "New partial solution:" << solutionGrid << endl << endl;
-				cs.erase(aSolution);
-			}
-			if(foundDigitSolution)	continue;	// keep looking for more digits
+				solutionGrid[aSolution->first] = s;
+				cout << "Trying Solution: " << s << " from " << aSolution << solutionGrid << endl;
 
-				// have to start trying combinations.
-			try	{	cs = FindEligibleDigits(solutionGrid);	}
-			catch(GotStuck p)	{	cout << "Got stuck: " << p << endl;	break;	}
-
-			aSolution = min_element(cs.begin(), cs.end(),	// Start with squares with least count of eligible digits
-					// compare number of eligible digits
-				[](EligibleDigits::const_reference v1, EligibleDigits::const_reference v2) noexcept -> bool  {		return v1.second.size() < v2.second.size();	});
-
-			if(aSolution != cs.end())
-			{
-				for(auto s: aSolution->second)
+				try
 				{
-					solutionGrid[aSolution->first] = s;
-					cout << "Trying Solution: " << s << " from " << aSolution << solutionGrid << endl;
-
-					try
-					{
-						trialSolution = FindPossibleSolution(solutionGrid);
-						if(isSolved(trialSolution))	throw FoundSolution(trialSolution);
-					}
-					catch(FoundSolution s)
-					{
-						cout << "Found Solution:" << s << endl;
-					}
+					trialSolution = FindPossibleSolution(solutionGrid);
+					if(isSolved(trialSolution))	throw FoundSolution(trialSolution);
 				}
-				cs.erase(aSolution);
+				catch(FoundSolution s)
+				{
+					cout << "Found Solution:" << s << endl;
+				}
 			}
-		} while(!cs.empty());	// Go through all the combinations
-	}
-	catch(FoundSolution s)	{	solutionGrid = s;	}
+			cs.erase(aSolution);
+		}
+	} while(!cs.empty());	// Go through all the combinations
 
 	return solutionGrid;	// ** compiler should use move constructor **
 }
+
+
 
 int main(int argc, const char * argv[])
 {

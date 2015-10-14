@@ -26,4 +26,21 @@ const array<short,9> columns = { 1,2,3,4,5,6,7,8,9 },
 	rows = columns,
 	digits = rows;
 
+
+	// Exceptions
+struct GotStuck
+{
+	Point p;
+
+	GotStuck(Point p) : p{p} {}
+};	// for throw
+
+struct FoundSolution
+{
+	Grid s;
+
+	FoundSolution(Grid &s) : s{s}	{}
+	operator Grid() const	{	return s;	}
+};
+
 #endif
