@@ -13,6 +13,14 @@
 
 using namespace std;
 
+struct GotStuck
+{
+	Point p;
+
+	GotStuck(Point p) : p{p} {}
+};	// for throw
+
+
 Grid givenValues =
 {
 	{{1,1}, 3}, {{4,1},4}, {{5,1}, 8}, {{6,1}, 5}, {{7,1},7}, {{8,1},2},
@@ -30,8 +38,10 @@ Grid givenValues =
 ostream& operator<<(ostream& o, Point v)	{	o << "x: " << v.first << " y: " << v.second;	return o;	}
 ostream& operator<<(ostream& o, set<short> v)	{	for(auto e : v) cout << e << ", "; return o;	}
 ostream& operator<<(ostream& o, EligibleDigits::const_iterator v)	{	cout << "Point: " << v->first << " Value: " << v->second; return o;	}
+ostream& operator<<(ostream& o, GotStuck p)	{	cout << p.p; return o;	}
 ostream& operator<<(ostream& o, const Grid& g)
 {
+	o << endl;
 	for(auto y : rows)
 		{
 		for(auto x : columns)
@@ -79,8 +89,13 @@ EligibleDigits FindEligibleDigits(const Grid& g)
 	EligibleDigits e;
 	for(auto y: rows)	for(auto x: columns)
 		if(g.find({x,y}) == g.end())
-				// point has no value in grid
-			e[{x,y}] = FindDigitsForPoint(g, {x,y});
+			// point has no value in grid
+		{
+			set<short> s = FindDigitsForPoint(g, {x,y});
+
+			if(s.empty())	throw GotStuck({x,y});
+			e[{x,y}] = s;
+		}
 	return e;
 }
 
@@ -91,31 +106,66 @@ bool isSolved(const Grid& g)
 	return true;
 }
 
-
-int main(int argc, const char * argv[])
+Grid FindPossibleSolution(const Grid& g)
 {
-	Grid solutionGrid = givenValues;
+	auto IsSolution = [](EligibleDigits::const_reference v) noexcept -> bool 	{	return v.second.size() == 1;	};	// point is a solution if only one value is possible
+	Grid solutionGrid = g, trialSolution;
 	EligibleDigits cs;
 
-	cout << "given Values: " << endl << givenValues << endl << endl;
 	do
 	{
-		cs = FindEligibleDigits(solutionGrid);
-		auto IsSolution = [](EligibleDigits::const_reference v) -> bool	{	return v.second.size() == 1;	};	// point is a solution if only one value is possible
+		try	{	cs = FindEligibleDigits(solutionGrid);	}
+		catch(GotStuck p)	{	cout << "Got stuck: " << p << endl;	break;	}
 
 			// look for solutions ( sets of eligible digits with only one value )
 		EligibleDigits::iterator aSolution;
-
-		if(find_if(cs.begin(), cs.end(), IsSolution) == cs.end())	break;	// no solutions found
-
+		bool foundSolution = false;
 		while((aSolution = find_if(cs.begin(), cs.end(), IsSolution)) != cs.end())
 		{
-			cout << "Adding Solution: " << aSolution << endl;
+			foundSolution = true;
+			cout << "Found Solution at " << aSolution << endl;
 			solutionGrid[aSolution->first] = *aSolution->second.begin();
+			cout << "New partial solution:" << solutionGrid << endl << endl;
 			cs.erase(aSolution);
-			cout << "New Solution:" << endl << solutionGrid << endl << endl;
+		}
+		if(foundSolution)
+			continue;
+
+			// have to start trying combinations.
+		try	{	cs = FindEligibleDigits(solutionGrid);	}
+		catch(GotStuck p)	{	cout << "Got stuck: " << p << endl;	break;	}
+
+		aSolution = min_element(cs.begin(), cs.end(),	// Start with squares with least count of eligible digits
+				// compare number of eligible digits
+			[](EligibleDigits::const_reference v1, EligibleDigits::const_reference v2) noexcept -> bool  {		return v1.second.size() < v2.second.size();	});
+
+		for(auto s: aSolution->second)
+		{
+			solutionGrid[aSolution->first] = s;
+			cout << "Trying Solution: " << s << " from " << aSolution << solutionGrid << endl;
+
+			trialSolution = FindPossibleSolution(solutionGrid);
+			cout << "Trial Solution:" << trialSolution << endl;
+			if(isSolved(trialSolution))
+			{
+				solutionGrid = move(trialSolution);	// move semantics
+				break;
+			}
 		}
 	} while(!isSolved(solutionGrid));
 
-    return 0;
+	return solutionGrid;	// ** compiler should use move constructor **
+}
+
+int main(int argc, const char * argv[])
+{
+	cout << "given Values: " << givenValues << endl << endl;
+	Grid s = FindPossibleSolution(givenValues);
+
+	if(isSolved(s))
+		cout << "The solution is: " << s << endl;
+	else
+		cout << "No solution found!!" << endl;
+
+	return 0;
 }
