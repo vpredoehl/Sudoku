@@ -10,9 +10,10 @@
 
 #include <iostream>
 #include <algorithm>
-
+#include <vector>
 using namespace std;
 
+vector<Grid> found;
 
 Grid givenValues =
 {
@@ -131,7 +132,7 @@ Grid FindPossibleSolution(const Grid& g)
 			for(auto s: aSolution->second)
 			{
 				solutionGrid[aSolution->first] = s;
-				cout << "Trying Solution: " << s << " from " << aSolution << solutionGrid << endl;
+//				cout << "Trying Solution: " << s << " from " << aSolution << solutionGrid << endl;
 
 				try
 				{
@@ -141,6 +142,7 @@ Grid FindPossibleSolution(const Grid& g)
 				catch(FoundSolution s)
 				{
 					cout << "Found Solution:" << s << endl;
+					found.push_back(s);
 				}
 			}
 			cs.erase(aSolution);
@@ -155,10 +157,13 @@ Grid FindPossibleSolution(const Grid& g)
 int main(int argc, const char * argv[])
 {
 	cout << "given Values: " << givenValues << endl << endl;
-	Grid s = FindPossibleSolution(givenValues);
+	FindPossibleSolution(givenValues);
 
-	if(isSolved(s))
-		cout << "The solution is: " << s << endl;
+	if(!found.empty())
+	{
+		cout << found.size() << " solutions found." << endl;
+//		copy(found.begin(), found.end(), ostream_iterator<Grid>(cout,"\n"));
+	 }
 	else
 		cout << "No solution found!!" << endl;
 
