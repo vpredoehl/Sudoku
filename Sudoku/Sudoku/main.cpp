@@ -20,6 +20,13 @@ struct GotStuck
 	GotStuck(Point p) : p{p} {}
 };	// for throw
 
+struct FoundSolution
+{
+	Grid s;
+
+	FoundSolution(Grid &s) : s{s}	{}
+	operator Grid() const	{	return s;	}
+};
 
 Grid givenValues =
 {
@@ -58,7 +65,7 @@ ostream& operator<<(ostream& o, const Grid& g)
 
 set<short> FindDigitsForPoint(const Grid& g, Point p)
 {
-	cout << "Finding candidates for point " << p << endl;
+//	cout << "Finding candidates for point " << p << endl;
 	short pX = p.first, pY = p.second;
 
 	set<short> u,i;	// union of all givens on row pY
@@ -75,11 +82,11 @@ set<short> FindDigitsForPoint(const Grid& g, Point p)
 			auto yPos = g.find({pX,y});
 			if(yPos != g.end())	u.insert(yPos->second);
 		}
-	cout << "Found: " << u << endl << endl;
+//	cout << "Found: " << u << endl << endl;
 
 	set_difference(digits.begin(), digits.end(), u.begin(), u.end(), inserter(i, i.begin()));
 
-	cout << "Eligible: " << i << endl << endl;
+//	cout << "Eligible: " << i << endl << endl;
 
 	return i;
 }
@@ -112,47 +119,54 @@ Grid FindPossibleSolution(const Grid& g)
 	Grid solutionGrid = g, trialSolution;
 	EligibleDigits cs;
 
-	do
+	try
 	{
-		try	{	cs = FindEligibleDigits(solutionGrid);	}
-		catch(GotStuck p)	{	cout << "Got stuck: " << p << endl;	break;	}
-
-			// look for solutions ( sets of eligible digits with only one value )
-		EligibleDigits::iterator aSolution;
-		bool foundSolution = false;
-		while((aSolution = find_if(cs.begin(), cs.end(), IsSolution)) != cs.end())
+		do
 		{
-			foundSolution = true;
-			cout << "Found Solution at " << aSolution << endl;
-			solutionGrid[aSolution->first] = *aSolution->second.begin();
-			cout << "New partial solution:" << solutionGrid << endl << endl;
-			cs.erase(aSolution);
-		}
-		if(foundSolution)
-			continue;
+			try	{	cs = FindEligibleDigits(solutionGrid);	}
+			catch(GotStuck p)	{	cout << "Got stuck: " << p << endl;	break;	}
 
-			// have to start trying combinations.
-		try	{	cs = FindEligibleDigits(solutionGrid);	}
-		catch(GotStuck p)	{	cout << "Got stuck: " << p << endl;	break;	}
-
-		aSolution = min_element(cs.begin(), cs.end(),	// Start with squares with least count of eligible digits
-				// compare number of eligible digits
-			[](EligibleDigits::const_reference v1, EligibleDigits::const_reference v2) noexcept -> bool  {		return v1.second.size() < v2.second.size();	});
-
-		for(auto s: aSolution->second)
-		{
-			solutionGrid[aSolution->first] = s;
-			cout << "Trying Solution: " << s << " from " << aSolution << solutionGrid << endl;
-
-			trialSolution = FindPossibleSolution(solutionGrid);
-			cout << "Trial Solution:" << trialSolution << endl;
-			if(isSolved(trialSolution))
+				// look for solutions ( sets of eligible digits with only one value )
+			EligibleDigits::iterator aSolution;
+			bool foundSolution = false;
+			while((aSolution = find_if(cs.begin(), cs.end(), IsSolution)) != cs.end())
 			{
-				solutionGrid = move(trialSolution);	// move semantics
-				break;
+				foundSolution = true;
+//				cout << "Found Solution at " << aSolution << endl;
+				solutionGrid[aSolution->first] = *aSolution->second.begin();
+//				cout << "New partial solution:" << solutionGrid << endl << endl;
+				cs.erase(aSolution);
 			}
-		}
-	} while(!isSolved(solutionGrid));
+			if(foundSolution)
+				continue;
+
+				// have to start trying combinations.
+			try	{	cs = FindEligibleDigits(solutionGrid);	}
+			catch(GotStuck p)	{	cout << "Got stuck: " << p << endl;	break;	}
+
+			aSolution = min_element(cs.begin(), cs.end(),	// Start with squares with least count of eligible digits
+					// compare number of eligible digits
+				[](EligibleDigits::const_reference v1, EligibleDigits::const_reference v2) noexcept -> bool  {		return v1.second.size() < v2.second.size();	});
+
+			for(auto s: aSolution->second)
+			{
+				solutionGrid[aSolution->first] = s;
+				cout << "Trying Solution: " << s << " from " << aSolution << solutionGrid << endl;
+
+				try
+				{
+					trialSolution = FindPossibleSolution(solutionGrid);
+					if(isSolved(trialSolution))	throw FoundSolution(trialSolution);
+				}
+				catch(FoundSolution s)
+				{
+					cout << "Found Solution:" << s << endl;
+				}
+			}
+			cs.erase(aSolution);
+		} while(!cs.empty());	// Go through all the combinations
+	}
+	catch(FoundSolution s)	{	solutionGrid = s;	}
 
 	return solutionGrid;	// ** compiler should use move constructor **
 }
