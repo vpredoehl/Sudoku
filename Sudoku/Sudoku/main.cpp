@@ -128,17 +128,16 @@ Grid FindPossibleSolution(const Grid& g)
 
 				// look for solutions ( sets of eligible digits with only one value )
 			EligibleDigits::iterator aSolution;
-			bool foundSolution = false;
+			bool foundDigitSolution = false;
 			while((aSolution = find_if(cs.begin(), cs.end(), IsSolution)) != cs.end())
 			{
-				foundSolution = true;
+				foundDigitSolution = true;
 //				cout << "Found Solution at " << aSolution << endl;
 				solutionGrid[aSolution->first] = *aSolution->second.begin();
 //				cout << "New partial solution:" << solutionGrid << endl << endl;
 				cs.erase(aSolution);
 			}
-			if(foundSolution)
-				continue;
+			if(foundDigitSolution)	continue;	// keep looking for more digits
 
 				// have to start trying combinations.
 			try	{	cs = FindEligibleDigits(solutionGrid);	}
@@ -147,6 +146,7 @@ Grid FindPossibleSolution(const Grid& g)
 			aSolution = min_element(cs.begin(), cs.end(),	// Start with squares with least count of eligible digits
 					// compare number of eligible digits
 				[](EligibleDigits::const_reference v1, EligibleDigits::const_reference v2) noexcept -> bool  {		return v1.second.size() < v2.second.size();	});
+
 
 			for(auto s: aSolution->second)
 			{
