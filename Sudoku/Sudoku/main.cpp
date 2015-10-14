@@ -129,7 +129,7 @@ Grid FindPossibleSolution(const Grid& g)
 				// look for solutions ( sets of eligible digits with only one value )
 			EligibleDigits::iterator aSolution;
 			bool foundDigitSolution = false;
-			while((aSolution = find_if(cs.begin(), cs.end(), IsSolution)) != cs.end())
+			while(!cs.empty() && (aSolution = find_if(cs.begin(), cs.end(), IsSolution)) != cs.end())
 			{
 				foundDigitSolution = true;
 //				cout << "Found Solution at " << aSolution << endl;
@@ -147,23 +147,25 @@ Grid FindPossibleSolution(const Grid& g)
 					// compare number of eligible digits
 				[](EligibleDigits::const_reference v1, EligibleDigits::const_reference v2) noexcept -> bool  {		return v1.second.size() < v2.second.size();	});
 
-
-			for(auto s: aSolution->second)
+			if(aSolution != cs.end())
 			{
-				solutionGrid[aSolution->first] = s;
-				cout << "Trying Solution: " << s << " from " << aSolution << solutionGrid << endl;
+				for(auto s: aSolution->second)
+				{
+					solutionGrid[aSolution->first] = s;
+					cout << "Trying Solution: " << s << " from " << aSolution << solutionGrid << endl;
 
-				try
-				{
-					trialSolution = FindPossibleSolution(solutionGrid);
-					if(isSolved(trialSolution))	throw FoundSolution(trialSolution);
+					try
+					{
+						trialSolution = FindPossibleSolution(solutionGrid);
+						if(isSolved(trialSolution))	throw FoundSolution(trialSolution);
+					}
+					catch(FoundSolution s)
+					{
+						cout << "Found Solution:" << s << endl;
+					}
 				}
-				catch(FoundSolution s)
-				{
-					cout << "Found Solution:" << s << endl;
-				}
+				cs.erase(aSolution);
 			}
-			cs.erase(aSolution);
 		} while(!cs.empty());	// Go through all the combinations
 	}
 	catch(FoundSolution s)	{	solutionGrid = s;	}
