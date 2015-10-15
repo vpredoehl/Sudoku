@@ -128,7 +128,8 @@ bool isSolved(const Grid& g)
 			return false;	// digit used more than once
 	}
 
-	return true;
+		// make sure given values are in the right place
+	return includes(g.begin(), g.end(), givenValues.begin(), givenValues.end());
 }
 
 Grid FindPossibleSolution(const Grid& g)
