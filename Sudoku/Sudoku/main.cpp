@@ -151,17 +151,15 @@ Grid FindPossibleSolution(const Grid& g)
 
 			// look for solutions ( sets of eligible digits with only one value )
 		EligibleDigits::iterator aSolution;
-		bool foundDigitSolution = false;
-		while(!cs.empty() && (aSolution = find_if(cs.begin(), cs.end(), IsSolution)) != cs.end())
+		if(!cs.empty() && (aSolution = find_if(cs.begin(), cs.end(), IsSolution)) != cs.end())
 		{
-			foundDigitSolution = true;
 			#ifdef verbose
 				cout << "Unique solution at " << aSolution << solutionGrid << endl;
 			#endif
 			solutionGrid[aSolution->first] = *aSolution->second.begin();
 			cs.erase(aSolution);
+            continue;
 		}
-		if(foundDigitSolution)	continue;	// keep looking for more digits
 
 			// have to start trying combinations.
 		try	{	cs = FindEligibleDigits(solutionGrid);	}
