@@ -18,9 +18,12 @@ using std::map;
 using std::set;
 using std::array;
 
+
 using Point = pair<short,short>;
 using Grid = map<Point, short>;
 using EligibleDigits = map<Point, set<short>>;
+using Region = set<Point>;
+using RegionSet = set<Region>;
 
 const array<short,9> columns = { 1,2,3,4,5,6,7,8,9 },
 	rows = columns,
