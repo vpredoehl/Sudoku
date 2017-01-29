@@ -102,7 +102,7 @@ set<short> FindDigitsForPoint(const Grid& g, Point p)
     }
     
         // find 3x3 region that contains pX, pY
-    auto regionIter = find_if(regions.begin(), regions.end(), [pX,pY](const Region &s)   {      return s.find({pX,pY}) != s.end();  });
+    auto regionIter = find_if(blocks.begin(), blocks.end(), [pX,pY](const Region &s)   {      return s.find({pX,pY}) != s.end();  });
     for(auto p : *regionIter)
     {
         auto gridIter = g.find(p);
@@ -110,34 +110,31 @@ set<short> FindDigitsForPoint(const Grid& g, Point p)
     }
         // find eligible digits by subtracting the used digits
 	set_difference(availableDigits.begin(), availableDigits.end(), u.begin(), u.end(), inserter(i, i.begin()));
-	#ifdef verbose
-		cout << "Possible digits at " << p << " are " << i << endl << endl;
-	#endif
 	return i;
+}
+
+auto FindEligiblePiDigits(const Grid& g) -> EligibleDigits
+{
+    EligibleDigits e;
+        // start with pi regions first because they are more restrictive
+    for(auto r : piRegions)
+        for(auto p : r) // each point in region
+            if(g.find(p) == g.end())
+            {
+                set<short> s = FindDigitsForPoint(g, p);
+                if(s.empty())   throw GotStuck(p);
+                    e[p] = s;
+            }
+    return e;
 }
 
 EligibleDigits FindEligibleDigits(const Grid& g)
 {
 	EligibleDigits e;
-    set<Point> piRegionPoints;  // keep track of points we try pi region
-    
-        // start with pi regions first because they are more restrictive
-    for(auto r : piRegions)
-        for(auto p : r) // each point in region
-        {
-            auto gridIter = g.find(p);
-
-            if(gridIter == g.end())
-            {
-                set<short> s = FindDigitsForPoint(g, p);
-                if(!s.empty())  e[p] = s;
-            }
-            piRegionPoints.insert(p);
-        }
     
 	for(auto y: rows)	for(auto x: columns)
             // only try points without a value and NOT in a pi region
-        if(piRegionPoints.find({x,y}) == piRegionPoints.end() && g.find({x,y}) == g.end())
+        if(g.find({x,y}) == g.end())
 			// point has no value in grid
 		{
 			set<short> s = FindDigitsForPoint(g, {x,y});
@@ -184,20 +181,34 @@ bool isSolved(const Grid& g)
 			return false;	// digit used more than once
 	}
     
-        // check digits in regions
-    for(auto r: regions)
+        // check blocks
+    for(auto b: blocks)
     {
         vector<short> d;
         Grid::const_iterator gIter;
         
-        for(auto p: r)  // each point in region
+        for(auto p: b)  // each point in region
             if((gIter = g.find(p)) != g.end())    d.push_back(gIter->second);
         sort(d.begin(), d.end());
         d.erase(unique(d.begin(), d.end()), d.end());
         if(d.size() != digits.size())
             return false;
     }
+    
+        // check pi regions
+    for(auto r : piRegions)
+    {
+        multiset<short> d;
         
+        for(auto p : r)
+        {
+            auto gridIter = g.find(p);
+            d.insert(gridIter->second);
+        }
+            // compared used digits against pi digits
+        if(d != multiset<short>{ piDigits.begin(), piDigits.end() })
+            return false;
+    }
 
 		// make sure given values are in the right place
 	return includes(g.begin(), g.end(), givenValues.begin(), givenValues.end());
@@ -205,72 +216,79 @@ bool isSolved(const Grid& g)
 
 Grid FindPossibleSolution(const Grid& g)
 {
-	auto IsSolution = [](EligibleDigits::const_reference v) noexcept -> bool 	{	return v.second.size() == 1;	};	// point is a solution if only one value is possible
-	Grid solutionGrid = g, trialSolution;
-	EligibleDigits cs;
+    using FindDigitFunct = auto (*)(const Grid&) -> EligibleDigits;
+    auto Permutate = [&g](FindDigitFunct FindDigits) -> Grid
+    {
+        auto IsSolution = [](EligibleDigits::const_reference v) noexcept -> bool 	{	return v.second.size() == 1;	};	// point is a solution if only one value is possible
+        Grid solutionGrid = g, trialSolution;
+        EligibleDigits cs;
 
-	do
-	{
-		try	{	cs = FindEligibleDigits(solutionGrid);	}
-		catch(GotStuck p)
-		{
-			#ifdef verbose
-				cout << "Got stuck: " << p << endl;
-			#endif
-			break;
-		}
+        do
+        {
+            try	{	cs = FindDigits(solutionGrid);	}
+            catch(GotStuck p)
+            {
+//                cout << "Got stuck: " << p << endl << solutionGrid << endl;
+                throw;
+            }
 
-			// look for solutions ( sets of eligible digits with only one value )
-		EligibleDigits::iterator aSolution;
-		while(!cs.empty() && (aSolution = find_if(cs.begin(), cs.end(), IsSolution)) != cs.end())
-		{
-			#ifdef verbose
-				cout << "Unique solution at " << aSolution << solutionGrid << endl;
-			#endif
-			solutionGrid[aSolution->first] = *aSolution->second.begin();
-			cs.erase(aSolution);
-		}
+                // look for solutions ( sets of eligible digits with only one value )
+            EligibleDigits::iterator aSolution = cs.begin();
+            while(!cs.empty() && (aSolution = find_if(aSolution, cs.end(), IsSolution)) != cs.end())
+            {
+                solutionGrid[aSolution->first] = *aSolution->second.begin();
+//                cout << "Unique solution at " << aSolution << solutionGrid << endl;
+                aSolution = cs.erase(aSolution);
+                auto regionIter = find_if(piRegions.begin(), piRegions.end(), [aSolution](const Region &r)   {   return r.find(aSolution->first) != r.end();    });
+                if(regionIter != piRegions.end())
+                {
+                    trialSolution = FindPossibleSolution(solutionGrid);
+                    if(isSolved(trialSolution))	throw FoundSolution(trialSolution);
+                }
+            }
 
-			// have to start trying combinations.
-		try	{	cs = FindEligibleDigits(solutionGrid);	}
-		catch(GotStuck p)
-		{
-			#ifdef verbose
-				cout << "Got stuck: " << p << endl;
-			#endif
-			break;
-		}
+                // have to start trying combinations.
+            try	{	cs = FindDigits(solutionGrid);	}
+            catch(GotStuck p)
+            {
+//                cout << "Got stuck: " << p << endl << solutionGrid << endl;
+                throw;
+            }
 
-		aSolution = min_element(cs.begin(), cs.end(),	// Start with squares with least count of eligible digits
-				// compare number of eligible digits
-			[](EligibleDigits::const_reference v1, EligibleDigits::const_reference v2) noexcept -> bool  {		return v1.second.size() < v2.second.size();	});
+            aSolution = min_element(cs.begin(), cs.end(),	// Start with squares with least count of eligible digits
+                    // compare number of eligible digits
+                [](EligibleDigits::const_reference v1, EligibleDigits::const_reference v2) noexcept -> bool  {		return v1.second.size() < v2.second.size();	});
 
-		if(aSolution != cs.end())
-		{
-			for(auto s: aSolution->second)
-			{
-				solutionGrid[aSolution->first] = s;
-				#ifdef verbose
-					cout << "Trying Solution: " << s << " from " << aSolution << solutionGrid << endl;
-				#endif
-				try
-				{
-					trialSolution = FindPossibleSolution(solutionGrid);
-					if(isSolved(trialSolution))	throw FoundSolution(trialSolution);
-				}
-				catch(FoundSolution s)
-				{
-					#ifdef verbose
-						cout << "Found Solution: " << s << endl;
-					#endif
-					found.push_back(s);
-				}
-			}
-			cs.erase(aSolution);
-		}
-	} while(!cs.empty());	// Go through all the combinations
-
-	return solutionGrid;	// ** compiler should use move constructor **
+            if(aSolution != cs.end())
+            {
+                for(auto s: aSolution->second)
+                {
+                    solutionGrid[aSolution->first] = s;
+//                    cout << "Possible solution " << s << " from " << aSolution << solutionGrid << endl;
+                    try
+                    {
+                        trialSolution = FindPossibleSolution(solutionGrid);
+                        if(isSolved(trialSolution))	throw FoundSolution(trialSolution);
+                    }
+                    catch(GotStuck)
+                    {
+//                        cout << "reverting back to: " << solutionGrid << endl;
+                        continue;
+                    }
+                    catch(FoundSolution s)
+                    {
+//                        cout << "Found Solution: " << s << endl;
+                        found.push_back(s);
+                    }
+                }
+                aSolution = cs.erase(aSolution);
+            }
+        } while(!cs.empty());	// Go through all the combinations
+        return solutionGrid;	// ** compiler should use move constructor **
+    };
+    
+    Permutate(FindEligiblePiDigits);
+    return Permutate(FindEligibleDigits);
 }
 
 
@@ -279,16 +297,24 @@ int main(int argc, const char * argv[])
 	cout << "given Values: " << givenValues << endl << endl;
     cout << "pi Regions: " << piRegions << endl << endl;
     
+    
     sort(piDigits.begin(), piDigits.end()); // for set_intersect
-	FindPossibleSolution(givenValues);
+    try {   FindPossibleSolution(givenValues);  }
+    catch(GotStuck) {   cout << "Done!\n";    }
+    catch(FoundSolution s)
+    {
+        cout << "Found Solution: " << s << endl;
+        found.push_back(s);
+    }
 
 	if(!found.empty())
 	{
 			// remove duplicate solutions
+        cout << found.size() << " solutions found." << endl;
 		sort(found.begin(), found.end());
 		found.erase(unique(found.begin(), found.end()), found.end());
 
-		cout << found.size() << " solutions found." << endl;
+		cout << found.size() << " unique solutions found." << endl;
 		for_each(found.begin(), found.end(), [](vector<Grid>::const_reference v)	{	cout << "Solution: " << v << endl;	});
 //		copy(found.begin(), found.end(), ostream_iterator<Grid>(cout,"\n"));
 	 }

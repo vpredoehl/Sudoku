@@ -55,7 +55,7 @@ const RegionList piRegions
 const array<short,9> columns = { 1,2,3,4,5,6,7,8,9 },
 	rows = columns,
 	digits = rows;
-const RegionList regions =  // coordinates for the nine 3x3 regions
+const RegionList blocks =  // coordinates for the nine 3x3 regions
 {
     {
         {1,1}, {2,1}, {3,1},
