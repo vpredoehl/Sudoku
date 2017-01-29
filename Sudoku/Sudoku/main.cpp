@@ -19,15 +19,14 @@ vector<Grid> found;
 
 Grid givenValues =	// {{x,y}, value}
 {
-	{{1,1}, 3}, {{4,1},4}, {{5,1}, 8}, {{6,1}, 5}, {{7,1},7}, {{8,1},2},
-	{{1,2},5}, {{4,2},3}, {{5,2},7}, {{7,2},6}, {{8,2},9},
-	{{2,3},2}, {{6,3},6},
-	{{2,4},8}, {{3,4},4}, {{5,4},6}, {{6,4},3},
-	{{4,5},1}, {{6,5},9},
-	{{4,6},8}, {{5,6},2}, {{7,6},4}, {{8,6},3},
-	{{4,7},6}, {{8,7},4},
-	{{2,8},7}, {{3,8},8}, {{5,8},5}, {{6,8}, 1}, {{9,8},3},
-	{{2,9},1}, {{3,9},6}, {{4,9},7}, {{5,9},3}, {{6,9},4}, {{9,9},2}
+    {{4,1}, 9}, {{6,1}, 4},
+    {{2,2}, 3}, {{8,2}, 9},
+    {{1,4}, 1}, {{5,4}, 6}, {{9,4}, 2},
+    {{4,5}, 4}, {{6,5}, 2},
+    {{1,6}, 6}, {{5,6}, 3}, {{9,6}, 4},
+    {{2,8}, 5}, {{8,8}, 4},
+    {{4,9}, 7}, {{6,9}, 5}
+    
 };
 
 	// output convenience
@@ -39,7 +38,7 @@ ostream& operator<<(ostream& o, const Grid& g)
 {
 	o << endl;
 	for(auto y : rows)
-		{
+    {
 		for(auto x : columns)
 		{
 			auto v = g.find({x,y});
@@ -48,8 +47,24 @@ ostream& operator<<(ostream& o, const Grid& g)
 			else cout << "* ";
 		}
 		cout << endl;
-		}
+    }
 	return o;
+}
+ostream& operator<<(ostream& o, const RegionList &rl)
+{
+    o << endl;
+    for(auto y : rows)
+    {
+        for(auto x : columns)
+        {
+            auto regionIter = find_if(rl.begin(), rl.end(), [x,y](const Region &r)  {   return r.end() != r.find({x,y});    });
+            
+            if(regionIter != rl.end())	cout << "* ";
+            else cout << ". ";
+        }
+        cout << endl;
+    }
+    return o;
 }
 
 
@@ -77,7 +92,7 @@ set<short> FindDigitsForPoint(const Grid& g, Point p)
         if(yPos != g.end())	u.insert(yPos->second);
     }
     
-        // find region that contains pX, pY
+        // find 3x3 region that contains pX, pY
     auto regionIter = find_if(regions.begin(), regions.end(), [pX,pY](const Region &s)   {      return s.find({pX,pY}) != s.end();  });
     for(auto p : *regionIter)
     {
@@ -237,6 +252,9 @@ Grid FindPossibleSolution(const Grid& g)
 int main(int argc, const char * argv[])
 {
 	cout << "given Values: " << givenValues << endl << endl;
+    cout << "pi Regions: " << piRegions << endl << endl;
+    
+    sort(piDigits.begin(), piDigits.end()); // for set_intersect
 	FindPossibleSolution(givenValues);
 
 	if(!found.empty())

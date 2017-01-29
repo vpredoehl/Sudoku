@@ -14,22 +14,48 @@
 #include <array>
 #include <vector>
 
-using std::pair;
 using std::map;
 using std::set;
 using std::array;
-using std::vector;
 
 
-using Point = pair<short,short>;
+using Point = std::pair<short,short>;
 using Grid = map<Point, short>;
 using EligibleDigits = map<Point, set<short>>;
 using Region = set<Point>;
+using RegionList = std::vector<Region>;
+
+array<short,8> piDigits { 3,1,4,1,5,9,2,6 };
+const RegionList piRegions
+{
+    {
+        {2,2}, {3,2}, {4,2},
+        {1,3}, {2,3}, {3,3}, {4,3},
+        {1,4}
+    },
+    {
+        {9,1},
+        {6,2}, {7,2}, {8,2}, {9,2},
+        {6,3}, {7,3}, {8,3}
+    },
+    {
+        {3,5}, {4,5},
+        {3,6}, {4,6},
+        {3,7}, {4,7},
+        {3,8}, {4,8}
+    },
+    {
+        {6,6}, {7,6},
+        {6,7}, {7,7},
+        {7,8}, {8,8},
+        {7,9}, {8,9}
+    }
+};
 
 const array<short,9> columns = { 1,2,3,4,5,6,7,8,9 },
 	rows = columns,
 	digits = rows;
-const vector<Region> regions =  // coordinates for the nine 3x3 regions
+const RegionList regions =  // coordinates for the nine 3x3 regions
 {
     {
         {1,1}, {2,1}, {3,1},
