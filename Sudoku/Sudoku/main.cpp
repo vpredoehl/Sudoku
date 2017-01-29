@@ -30,55 +30,6 @@ Grid givenValues =	// {{x,y}, value}
 	{{2,9},1}, {{3,9},6}, {{4,9},7}, {{5,9},3}, {{6,9},4}, {{9,9},2}
 };
 
-RegionSet rs =  // coordinates for the nine 3x3 regions
-{
-    {
-        {1,1}, {2,1}, {3,1},
-        {1,2}, {2,2}, {3,2},
-        {1,3}, {2,3}, {3,3}
-    },
-    {
-        {4,1}, {5,1}, {6,1},
-        {4,2}, {5,2}, {6,2},
-        {4,3}, {5,3}, {6,3}
-    },
-    {
-        {7,1}, {8,1}, {9,1},
-        {7,2}, {8,2}, {9,2},
-        {7,3}, {8,3}, {9,3}
-    },
-    {
-        {1,4}, {2,4}, {3,4},
-        {1,5}, {2,5}, {3,5},
-        {1,6}, {2,6}, {3,6}
-    },
-    {
-        {4,4}, {5,4}, {6,4},
-        {4,5}, {5,5}, {6,5},
-        {4,6}, {5,6}, {6,6}
-    },
-    {
-        {7,4}, {8,4}, {9,4},
-        {7,5}, {8,5}, {9,5},
-        {7,6}, {8,6}, {9,6}
-    },
-    {
-        {1,7}, {2,7}, {3,7},
-        {1,8}, {2,8}, {3,8},
-        {1,9}, {2,9}, {3,9}
-    },
-    {
-        {4,7}, {5,7}, {6,7},
-        {4,8}, {5,8}, {6,8},
-        {4,9}, {5,9}, {6,9}
-    },
-    {
-        {7,7}, {8,7}, {9,7},
-        {7,8}, {8,8}, {9,8},
-        {7,9}, {8,9}, {9,9}
-    }
-};
-
 	// output convenience
 ostream& operator<<(ostream& o, Point v)	{	o << "{" << v.first << "," << v.second << "}";	return o;	}
 ostream& operator<<(ostream& o, set<short> v)	{	for(auto e : v) cout << e << ", "; return o;	}
@@ -184,6 +135,21 @@ bool isSolved(const Grid& g)
 		if(d.size() != digits.size())
 			return false;	// digit used more than once
 	}
+    
+        // check digits in regions
+    for(auto r: regions)
+    {
+        vector<short> d;
+        Grid::const_iterator gIter;
+        
+        for(auto p: r)  // each point in region
+            if((gIter = g.find(p)) != g.end())    d.push_back(gIter->second);
+        sort(d.begin(), d.end());
+        d.erase(unique(d.begin(), d.end()), d.end());
+        if(d.size() != digits.size())
+            return false;
+    }
+        
 
 		// make sure given values are in the right place
 	return includes(g.begin(), g.end(), givenValues.begin(), givenValues.end());
