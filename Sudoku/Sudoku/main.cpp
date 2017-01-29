@@ -67,19 +67,28 @@ ostream& operator<<(ostream& o, const RegionList &rl)
     return o;
 }
 
-
-set<short> FindEligibleDigitsInRegionForColumn(short col)
-{
-    set<short> ret;
-    
-    return ret;
-}
-
 set<short> FindDigitsForPoint(const Grid& g, Point p)
 {
+    set<short> u,i, availableDigits;
 	short pX = p.first, pY = p.second;
 
-	set<short> u,i;
+        // remove digits already used by pi region
+    auto piRegionIter = find_if(piRegions.begin(), piRegions.end(), [pX,pY](const Region &r)    {   return r.find({pX,pY}) != r.end();  });
+    if(piRegionIter != piRegions.end())
+            // pX, pY is in a pi region
+            // find availableDigits constrained by pi region
+    {
+        multiset<short> usedInPi;
+        for(auto p : *piRegionIter) // traverse points in region
+        {
+            auto gridIter = g.find(p);
+            if(gridIter != g.end())    usedInPi.insert(gridIter->second);
+        }
+        set_difference(piDigits.begin(), piDigits.end(), usedInPi.begin(), usedInPi.end(), inserter(availableDigits, availableDigits.begin()));
+    }
+    else
+        availableDigits  = { digits.begin(), digits.end()  };
+
     
 	for(auto x: columns)
     {
@@ -96,12 +105,11 @@ set<short> FindDigitsForPoint(const Grid& g, Point p)
     auto regionIter = find_if(regions.begin(), regions.end(), [pX,pY](const Region &s)   {      return s.find({pX,pY}) != s.end();  });
     for(auto p : *regionIter)
     {
-        auto regionPointIter = g.find(p);
-        if(regionPointIter != g.end())  u.insert(regionPointIter->second); // add digits from grid found in region
+        auto gridIter = g.find(p);
+        if(gridIter != g.end())  u.insert(gridIter->second); // add digits from grid found in region
     }
-    
         // find eligible digits by subtracting the used digits
-	set_difference(digits.begin(), digits.end(), u.begin(), u.end(), inserter(i, i.begin()));
+	set_difference(availableDigits.begin(), availableDigits.end(), u.begin(), u.end(), inserter(i, i.begin()));
 	#ifdef verbose
 		cout << "Possible digits at " << p << " are " << i << endl << endl;
 	#endif
@@ -111,8 +119,25 @@ set<short> FindDigitsForPoint(const Grid& g, Point p)
 EligibleDigits FindEligibleDigits(const Grid& g)
 {
 	EligibleDigits e;
+    set<Point> piRegionPoints;  // keep track of points we try pi region
+    
+        // start with pi regions first because they are more restrictive
+    for(auto r : piRegions)
+        for(auto p : r) // each point in region
+        {
+            auto gridIter = g.find(p);
+
+            if(gridIter == g.end())
+            {
+                set<short> s = FindDigitsForPoint(g, p);
+                if(!s.empty())  e[p] = s;
+            }
+            piRegionPoints.insert(p);
+        }
+    
 	for(auto y: rows)	for(auto x: columns)
-		if(g.find({x,y}) == g.end())
+            // only try points without a value and NOT in a pi region
+        if(piRegionPoints.find({x,y}) == piRegionPoints.end() && g.find({x,y}) == g.end())
 			// point has no value in grid
 		{
 			set<short> s = FindDigitsForPoint(g, {x,y});
