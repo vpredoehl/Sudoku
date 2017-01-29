@@ -64,21 +64,29 @@ set<short> FindDigitsForPoint(const Grid& g, Point p)
 {
 	short pX = p.first, pY = p.second;
 
-	set<short> u,i;	// union of all givens on row pY
-
+	set<short> u,i;
+    
 	for(auto x: columns)
-		if(pX != x)
-		{
-			auto xPos = g.find({x,pY});	// find value at this Point
-			if(xPos != g.end())	u.insert(xPos->second);
-		}
+    {
+        auto xPos = g.find({x,pY});	// find value at this Point
+        if(xPos != g.end())	u.insert(xPos->second);
+    }
 	for(auto y: rows)
-		if(pY != y)
-		{
-			auto yPos = g.find({pX,y});
-			if(yPos != g.end())	u.insert(yPos->second);
-		}
-	set_symmetric_difference(digits.begin(), digits.end(), u.begin(), u.end(), inserter(i, i.begin()));
+    {
+        auto yPos = g.find({pX,y});
+        if(yPos != g.end())	u.insert(yPos->second);
+    }
+    
+        // find region that contains pX, pY
+    auto regionIter = find_if(regions.begin(), regions.end(), [pX,pY](const Region &s)   {      return s.find({pX,pY}) != s.end();  });
+    for(auto p : *regionIter)
+    {
+        auto regionPointIter = g.find(p);
+        if(regionPointIter != g.end())  u.insert(regionPointIter->second); // add digits from grid found in region
+    }
+    
+        // find eligible digits by subtracting the used digits
+	set_difference(digits.begin(), digits.end(), u.begin(), u.end(), inserter(i, i.begin()));
 	#ifdef verbose
 		cout << "Possible digits at " << p << " are " << i << endl << endl;
 	#endif
@@ -174,14 +182,13 @@ Grid FindPossibleSolution(const Grid& g)
 
 			// look for solutions ( sets of eligible digits with only one value )
 		EligibleDigits::iterator aSolution;
-		if(!cs.empty() && (aSolution = find_if(cs.begin(), cs.end(), IsSolution)) != cs.end())
+		while(!cs.empty() && (aSolution = find_if(cs.begin(), cs.end(), IsSolution)) != cs.end())
 		{
 			#ifdef verbose
 				cout << "Unique solution at " << aSolution << solutionGrid << endl;
 			#endif
 			solutionGrid[aSolution->first] = *aSolution->second.begin();
 			cs.erase(aSolution);
-            continue;
 		}
 
 			// have to start trying combinations.
