@@ -13,8 +13,6 @@
 #include <vector>
 using namespace std;
 
-vector<Grid> found;
-
 #define verbose	// show solution steps
 
 Grid givenValues =	// {{x,y}, value}
@@ -286,11 +284,6 @@ Grid FindPossibleSolution(const Grid& g)
 //                        cout << "reverting back to: " << solutionGrid << endl;
                         continue;
                     }
-                    catch(FoundSolution s)
-                    {
-//                        cout << "Found Solution: " << s << endl;
-                        found.push_back(s);
-                    }
                 }
                 aSolution = cs.erase(aSolution);
             }
@@ -310,27 +303,12 @@ int main(int argc, const char * argv[])
     
     
     sort(piDigits.begin(), piDigits.end()); // for set_intersect
+    
     try {   FindPossibleSolution(givenValues);  }
-    catch(GotStuck) {   cout << "Done!\n";    }
-    catch(FoundSolution s)
-    {
-        cout << "Found Solution: " << s << endl;
-        found.push_back(s);
-    }
+    catch(GotStuck) {   cout << "Got stuck!!\n";    }
+    catch(FoundSolution s)  {   cout << "Found Solution: " << s << endl;    return 0;   }
+    
+    cout << "Done!!\n";
 
-	if(!found.empty())
-	{
-			// remove duplicate solutions
-        cout << found.size() << " solutions found." << endl;
-		sort(found.begin(), found.end());
-		found.erase(unique(found.begin(), found.end()), found.end());
-
-		cout << found.size() << " unique solutions found." << endl;
-		for_each(found.begin(), found.end(), [](vector<Grid>::const_reference v)	{	cout << "Solution: " << v << endl;	});
-//		copy(found.begin(), found.end(), ostream_iterator<Grid>(cout,"\n"));
-	 }
-	else
-		cout << "No solution found!!" << endl;
-
-	return 0;
+	return 1;
 }
