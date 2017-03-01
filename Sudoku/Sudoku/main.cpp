@@ -11,9 +11,14 @@
 #include <iostream>
 #include <algorithm>
 #include <vector>
+#include <thread>
+#include <future>
+
 using namespace std;
 
 vector<Grid> found;
+atomic<unsigned int> taskPool { thread::hardware_concurrency()  };
+array<thread, 8> task({});
 
 #define verbose	// show solution steps
 
@@ -155,6 +160,24 @@ EligibleDigits FindEligibleDigits(const Grid& g)
 	return e;
 }
 
+auto isPiSolved(const Grid& g) -> bool
+{
+    for(auto r : piRegions)
+    {
+        multiset<short> d;
+        
+        for(auto p : r)
+        {
+            auto gridIter = g.find(p);
+            d.insert(gridIter->second);
+        }
+            // compared used digits against pi digits
+        if(d != multiset<short>{ piDigits.begin(), piDigits.end() })
+            return false;
+    }
+    return true;
+}
+
 bool isSolved(const Grid& g)
 {
 	for(auto y: rows)	for(auto x: columns)
@@ -206,23 +229,8 @@ bool isSolved(const Grid& g)
             return false;
     }
     
-        // check pi regions
-    for(auto r : piRegions)
-    {
-        multiset<short> d;
-        
-        for(auto p : r)
-        {
-            auto gridIter = g.find(p);
-            d.insert(gridIter->second);
-        }
-            // compared used digits against pi digits
-        if(d != multiset<short>{ piDigits.begin(), piDigits.end() })
-            return false;
-    }
-
-		// make sure given values are in the right place
-	return includes(g.begin(), g.end(), givenValues.begin(), givenValues.end());
+		// make sure pi region is solved and given values are in the right place
+	return isPiSolved(g) && includes(g.begin(), g.end(), givenValues.begin(), givenValues.end());
 }
 
 Grid FindPossibleSolution(const Grid& g)
@@ -236,13 +244,7 @@ Grid FindPossibleSolution(const Grid& g)
 
         do
         {
-            try	{	cs = FindDigits(solutionGrid);	}
-            catch(GotStuck p)
-            {
-//                cout << "Got stuck: " << p << endl << solutionGrid << endl;
-                throw;
-            }
-
+            cs = FindDigits(solutionGrid);
                 // look for solutions ( sets of eligible digits with only one value )
             EligibleDigits::iterator aSolution = cs.begin();
             while(!cs.empty() && (aSolution = find_if(aSolution, cs.end(), IsSolution)) != cs.end())
@@ -259,13 +261,7 @@ Grid FindPossibleSolution(const Grid& g)
             }
 
                 // have to start trying combinations.
-            try	{	cs = FindDigits(solutionGrid);	}
-            catch(GotStuck p)
-            {
-//                cout << "Got stuck: " << p << endl << solutionGrid << endl;
-                throw;
-            }
-
+            cs = FindDigits(solutionGrid);
             aSolution = min_element(cs.begin(), cs.end(),	// Start with squares with least count of eligible digits
                     // compare number of eligible digits
                 [](EligibleDigits::const_reference v1, EligibleDigits::const_reference v2) noexcept -> bool  {		return v1.second.size() < v2.second.size();	});
@@ -276,21 +272,14 @@ Grid FindPossibleSolution(const Grid& g)
                 {
                     solutionGrid[aSolution->first] = s;
 //                    cout << "Possible solution " << s << " from " << aSolution << solutionGrid << endl;
+//                    gridFU.push_back(async(launch::async | launch::deferred, FindPossibleSolution,solutionGrid));
+                    auto fuTS = async(launch::async | launch::deferred, FindPossibleSolution,solutionGrid);
                     try
                     {
-                        trialSolution = FindPossibleSolution(solutionGrid);
-                        if(isSolved(trialSolution))	throw FoundSolution(trialSolution);
+                        trialSolution = fuTS.get();
+                        if(isSolved(trialSolution)) throw FoundSolution(trialSolution);
                     }
-                    catch(GotStuck)
-                    {
-//                        cout << "reverting back to: " << solutionGrid << endl;
-                        continue;
-                    }
-                    catch(FoundSolution s)
-                    {
-//                        cout << "Found Solution: " << s << endl;
-                        found.push_back(s);
-                    }
+                    catch(GotStuck) {   }
                 }
                 aSolution = cs.erase(aSolution);
             }
@@ -298,7 +287,9 @@ Grid FindPossibleSolution(const Grid& g)
         return solutionGrid;	// ** compiler should use move constructor **
     };
     
-    Permutate(FindEligiblePiDigits);
+    Grid ts = Permutate(FindEligiblePiDigits);
+    if(!isPiSolved(ts))    return {};   // don't true remaining permutations without pi region being solved.
+    
     return Permutate(FindEligibleDigits);
 }
 
