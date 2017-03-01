@@ -268,19 +268,34 @@ Grid FindPossibleSolution(const Grid& g)
 
             if(aSolution != cs.end())
             {
-                for(auto s: aSolution->second)
+                vector<future<Grid>> gridFU;
+                
+                for(auto s: aSolution->second)  // start async threads for each possible solution path for this entry
                 {
-                    solutionGrid[aSolution->first] = s;
-//                    cout << "Possible solution " << s << " from " << aSolution << solutionGrid << endl;
-//                    gridFU.push_back(async(launch::async | launch::deferred, FindPossibleSolution,solutionGrid));
-                    auto fuTS = async(launch::async | launch::deferred, FindPossibleSolution,solutionGrid);
-                    try
-                    {
-                        trialSolution = fuTS.get();
-                        if(isSolved(trialSolution)) throw FoundSolution(trialSolution);
-                    }
-                    catch(GotStuck) {   }
+                    solutionGrid[aSolution->first] = s; //  cout << "Trying possible solution " << s << " from " << aSolution << solutionGrid << endl;
+                    gridFU.push_back(async(launch::async | launch::deferred, FindPossibleSolution,solutionGrid));
                 }
+                
+                do
+                {
+                    auto readyFutureIter = find_if(gridFU.begin(), gridFU.end(), [](const future<Grid> &f)   {   return f.valid() && f.wait_for(chrono::seconds{0}) == future_status::ready; });
+                    
+                    if(readyFutureIter != gridFU.end())
+                        try
+                        {
+                            trialSolution = readyFutureIter->get();
+                            gridFU.erase(readyFutureIter);
+                            if(isSolved(trialSolution))
+                            {
+                                cout << "Solved (ID):" << this_thread::get_id() << trialSolution << endl;
+                                throw FoundSolution(trialSolution);
+                            }
+                        }
+                        catch(GotStuck) {   continue;   }
+
+                    this_thread::sleep_for(chrono::milliseconds{100});
+                } while(gridFU.size());
+                
                 aSolution = cs.erase(aSolution);
             }
         } while(!cs.empty());	// Go through all the combinations
