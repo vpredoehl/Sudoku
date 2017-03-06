@@ -17,8 +17,8 @@
 using namespace std;
 
 vector<Grid> found;
-atomic<unsigned int> taskPool { thread::hardware_concurrency()  };
-array<thread, 8> task({});
+
+atomic<int> FoundSolution::cancelAllThreads(INT32_MAX);
 
 #define verbose	// show solution steps
 
@@ -233,10 +233,11 @@ bool isSolved(const Grid& g)
 	return isPiSolved(g) && includes(g.begin(), g.end(), givenValues.begin(), givenValues.end());
 }
 
-Grid FindPossibleSolution(const Grid& g)
+Grid FindPossibleSolution(const Grid& g, int threadLevel)
 {
     using FindDigitFunct = auto (*)(const Grid&) -> EligibleDigits;
-    auto Permutate = [&g](FindDigitFunct FindDigits) -> Grid
+
+    auto Permutate = [&g, threadLevel](FindDigitFunct FindDigits) -> Grid
     {
         auto IsSolution = [](EligibleDigits::const_reference v) noexcept -> bool 	{	return v.second.size() == 1;	};	// point is a solution if only one value is possible
         Grid solutionGrid = g, trialSolution;
@@ -255,9 +256,10 @@ Grid FindPossibleSolution(const Grid& g)
                 auto regionIter = find_if(piRegions.begin(), piRegions.end(), [aSolution](const Region &r)   {   return r.find(aSolution->first) != r.end();    });
                 if(regionIter != piRegions.end())
                 {
-                    trialSolution = FindPossibleSolution(solutionGrid);
-                    if(isSolved(trialSolution))	throw FoundSolution(trialSolution);
+                    trialSolution = FindPossibleSolution(solutionGrid, threadLevel+1);
+                    if(isSolved(trialSolution))	FoundSolution(trialSolution, threadLevel);
                 }
+                if(threadLevel > FoundSolution::cancelAllThreads) return {};
             }
 
                 // have to start trying combinations.
@@ -272,8 +274,9 @@ Grid FindPossibleSolution(const Grid& g)
                 
                 for(auto s: aSolution->second)  // start async threads for each possible solution path for this entry
                 {
+                    if(threadLevel > FoundSolution::cancelAllThreads)   return {};
                     solutionGrid[aSolution->first] = s; //  cout << "Trying possible solution " << s << " from " << aSolution << solutionGrid << endl;
-                    gridFU.push_back(async(launch::async | launch::deferred, FindPossibleSolution,solutionGrid));
+                    gridFU.push_back(async(launch::async /*| launch::deferred*/, FindPossibleSolution,solutionGrid, threadLevel+1));
                 }
                 
                 do
@@ -285,14 +288,14 @@ Grid FindPossibleSolution(const Grid& g)
                         {
                             trialSolution = readyFutureIter->get();
                             gridFU.erase(readyFutureIter);
-                            if(isSolved(trialSolution))
-                            {
-                                cout << "Solved (ID):" << this_thread::get_id() << trialSolution << endl;
-                                throw FoundSolution(trialSolution);
-                            }
+                            if(isSolved(trialSolution)) throw FoundSolution(trialSolution, threadLevel);
                         }
-                        catch(GotStuck) {   continue;   }
+                        catch(GotStuck)
+                        {
+                            continue;
+                        }
 
+                    if(threadLevel > FoundSolution::cancelAllThreads) return {};
                     this_thread::sleep_for(chrono::milliseconds{100});
                 } while(gridFU.size());
                 
@@ -302,10 +305,15 @@ Grid FindPossibleSolution(const Grid& g)
         return solutionGrid;	// ** compiler should use move constructor **
     };
     
-    Grid ts = Permutate(FindEligiblePiDigits);
-    if(!isPiSolved(ts))    return {};   // don't true remaining permutations without pi region being solved.
-    
-    return Permutate(FindEligibleDigits);
+    try
+    {
+        Grid ts = Permutate(FindEligiblePiDigits);
+        if(!isPiSolved(ts))    return {};   // don't true remaining permutations without pi region being solved.
+        
+        return Permutate(FindEligibleDigits);
+    }
+    catch(FoundSolution s)  {   return s;   }
+    return {};
 }
 
 
@@ -316,13 +324,24 @@ int main(int argc, const char * argv[])
     
     
     sort(piDigits.begin(), piDigits.end()); // for set_intersect
-    try {   FindPossibleSolution(givenValues);  }
+    try
+    {
+        Grid s = FindPossibleSolution(givenValues,0);
+
+        cout << "Returned: " << s << endl;
+        if(isSolved(s)) found.push_back(s);
+    }
     catch(GotStuck) {   cout << "Done!\n";    }
     catch(FoundSolution s)
     {
         cout << "Found Solution: " << s << endl;
         found.push_back(s);
     }
+    catch(...)
+    {
+        cout << "catch(...)\n";
+    }
+    FoundSolution::cancelAllThreads = 0;
 
 	if(!found.empty())
 	{

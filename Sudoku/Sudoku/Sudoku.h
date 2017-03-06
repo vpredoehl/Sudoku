@@ -17,6 +17,7 @@
 using std::map;
 using std::set;
 using std::array;
+using std::nested_exception;
 
 
 using Point = std::pair<short,short>;
@@ -116,9 +117,10 @@ struct GotStuck
 
 struct FoundSolution
 {
+    static std::atomic<int> cancelAllThreads;
 	Grid s;
 
-	FoundSolution(Grid &s) : s{s}	{}
+    FoundSolution(Grid &s, int threadLevel) : s{s}	{   cancelAllThreads = threadLevel;    }
 	operator Grid() const	{	return s;	}
 };
 
