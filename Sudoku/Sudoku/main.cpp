@@ -39,9 +39,9 @@ Grid givenValues =	// {{x,y}, value}
 
 	// output convenience
 ostream& operator<<(ostream& o, Point v)	{	o << "{" << v.first << "," << v.second << "}";	return o;	}
-ostream& operator<<(ostream& o, set<short> v)	{	for(auto e : v) cout << e << ", "; return o;	}
-ostream& operator<<(ostream& o, EligibleDigits::const_iterator v)	{	cout << v->first << " Value: " << v->second; return o;	}
-ostream& operator<<(ostream& o, GotStuck p)	{	cout << p.p; return o;	}
+ostream& operator<<(ostream& o, set<short> v)	{	for(auto e : v) o << e << ", "; return o;	}
+ostream& operator<<(ostream& o, EligibleDigits::const_iterator v)	{	o << v->first << " Value: " << v->second; return o;	}
+ostream& operator<<(ostream& o, GotStuck p)	{	o << p.p; return o;	}
 ostream& operator<<(ostream& o, const Grid& g)
 {
 	o << endl;
@@ -51,10 +51,10 @@ ostream& operator<<(ostream& o, const Grid& g)
 		{
 			auto v = g.find({x,y});
 
-			if(v != g.end())	cout << v->second << ' ';
-			else cout << "* ";
+			if(v != g.end())        o << v->second << ' ';
+			else o << "* ";
 		}
-		cout << endl;
+		o << endl;
     }
 	return o;
 }
@@ -67,10 +67,10 @@ ostream& operator<<(ostream& o, const RegionList &rl)
         {
             auto regionIter = find_if(rl.begin(), rl.end(), [x,y](const Region &r)  {   return r.end() != r.find({x,y});    });
             
-            if(regionIter != rl.end())	cout << "* ";
-            else cout << ". ";
+            if(regionIter != rl.end())	o << "* ";
+            else o << ". ";
         }
-        cout << endl;
+        o << endl;
     }
     return o;
 }
